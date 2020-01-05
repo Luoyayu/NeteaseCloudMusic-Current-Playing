@@ -1,5 +1,8 @@
 NeteaseMusic.app do not provide the API like Spotify or Itunes to get what now playing.
-`cmd/nmcPlaying` is a golang tool showing what song playing in your macOS with NeteaseMusic, no need to hook or root authority.
+
+two way:
+1. access $TMPDIR/../0/com.apple.notificationcenter/db2/db => SQLite 3.x database
+2. access $HOME/Library/Containers/com.netease.163music/Data/Documents/storage/file_storage/webdata/file/history => Apple binary property list
 
 !!! only +build for Darwin !!!
 test in macOS Catalina 10.15.2 (Darwin 19.2.0)   
