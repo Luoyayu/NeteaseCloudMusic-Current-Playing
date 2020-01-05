@@ -5,13 +5,11 @@ package NeteaseMusicPlaying
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
 	"howett.net/plist"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -19,19 +17,18 @@ type historyStruct struct {
 	Objects []string `plist:"$objects"`
 }
 
-var historyFilePath string
+var HistoryFilePath string
 
 func init() {
-	historyFilePath = os.Getenv("HOME") +
+	HistoryFilePath = os.Getenv("HOME") +
 		"/Library/Containers/com.netease.163music/Data/Documents/storage/file_storage/webdata/file/history"
 }
 
-var PlayingMutex sync.Mutex
 
 var Playing = &Song{}
 
 func Update() {
-	f, err := os.Open(historyFilePath)
+	f, err := os.Open(HistoryFilePath)
 	historyData, _ := ioutil.ReadAll(f)
 	if err != nil {
 		panic(err)
@@ -73,43 +70,4 @@ func Update() {
 
 	fmt.Println("from:", Playing.Text)
 	fmt.Println("////////////////////////////////////////////////////////////////////////////")
-}
-
-func Watch() {
-	Update()
-	watch, err := fsnotify.NewWatcher()
-	if err != nil {
-		panic(err)
-	}
-
-	defer watch.Close()
-
-	done := make(chan struct{})
-
-	go func() {
-		for {
-			select {
-			case event, ok := <-watch.Events:
-				if !ok {
-					return
-				}
-				log.Println("event:", event.Op)
-				if event.Op == fsnotify.Create {
-					//log.Println("watcher: log file create")
-					Update()
-				}
-
-			case err, ok := <-watch.Errors:
-				if !ok {
-					return
-				}
-				log.Println("error:", err)
-			}
-		}
-	}()
-
-	if err = watch.Add(historyFilePath); err != nil {
-		log.Fatalln(err)
-	}
-	<-done
 }

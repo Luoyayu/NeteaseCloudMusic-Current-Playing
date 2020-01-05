@@ -1,5 +1,6 @@
-package NeteaseMusicPlaying
+// +build darwin
 
+package NeteaseMusicPlaying
 
 type Song struct {
 	Tid          int64  `json:"tid"`
@@ -45,5 +46,3 @@ type Song struct {
 		} `json:"privilege"`
 	} `json:"track"`
 }
-
-

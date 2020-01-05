@@ -1,3 +1,5 @@
+// +build windows
+
 package main
 
 import (
@@ -20,22 +22,20 @@ func Playing(c *gin.Context) {
 		artists = append(artists, a.Name)
 	}
 
-	duration, _ := time.ParseDuration(fmt.Sprint(playingSong.Track.Duration/1000) + "s")
+	duration, _ := time.ParseDuration(fmt.Sprint(playingSong.Track.Dt/1000) + "s")
 
 	c.JSONP(http.StatusOK, map[string]interface{}{
 		"songId":         playingSong.Track.Id,
 		"songName":       playingSong.Track.Name,
-		"songAlias":      playingSong.Track.Alias,
-		"songPopularity": playingSong.Track.Popularity,
+		"songPopularity": playingSong.Track.Pop,
 		"songIsPayed":    playingSong.Track.Privilege.Payed,
 		"sonDuration":    duration,
 
 		"artistName": strings.Join(artists, " / "),
 		"AlbumName":  playingSong.Track.Album.Name,
-		"albumAlias": playingSong.Track.Album.Alias,
-		"albumPic":   playingSong.Track.Album.PicUrl,
+		"albumPic":   playingSong.Track.Album.Pic,
 
-		"from": playingSong.Text,
+		"from": playingSong.Track.Source.SourceName,
 	})
 
 }
@@ -43,12 +43,13 @@ func Playing(c *gin.Context) {
 func main() {
 
 	go func() {
-		NetEaseMusicPlaying.Watch()
+		NetEaseMusicPlaying.Watch(NetEaseMusicPlaying.HistoryFilePath)
 	}()
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
-	r.Handle(http.MethodGet, "/CC981E5D-9E4E-4DBB-95B1-FA6855E5F3B5/playing", Playing)
+	r.Handle(http.MethodGet, "/playing", Playing)
 
 	log.Fatal(r.Run("127.0.0.1:9163"))
 }
