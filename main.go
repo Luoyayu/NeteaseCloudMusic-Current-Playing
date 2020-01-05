@@ -3,106 +3,113 @@
 package NeteaseMusicPlaying
 
 import (
-	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
+	"encoding/json"
+	"fmt"
+	"github.com/fsnotify/fsnotify"
 	"howett.net/plist"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
-var TMPDIR string
-var db1DB2 string
-var db *sql.DB
-var appid string
-var CurrentPlayingSong = NotificationPlist{}
-
-type NotificationPlist struct {
-	App  string                 `plist:"app"`
-	Date float64                `plist:"date"`
-	Req  map[string]interface{} `plist:"req"`
-
-	ArtistName string
-	AlbumName  string
-	SongName   string
-
-	StartPlayTime   int64
-	LastingPlayTime float64
-	IsPaused        bool
+type historyStruct struct {
+	Objects []string `plist:"$objects"`
 }
+
+var historyFilePath string
 
 func init() {
-	log.Println("网易云音乐 -> 偏好设置 -> √ 启用系统歌曲播放通知栏")
-
-	TMPDIR = os.Getenv("TMPDIR")
-	db1DB2 = TMPDIR + "../0/com.apple.notificationcenter/db2/db"
-	_, err := os.Open(db1DB2)
-	if err == nil || os.IsExist(err) {
-		log.Println("splite 3 db file is exist")
-	} else {
-		log.Fatalln("splite 3 db file is Not Exist!")
-	}
-
-	db, err = sql.Open("sqlite3", db1DB2)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	sqlStmt := `
-		SELECT app_id FROM app 
-		WHERE app.identifier is 'com.netease.163music';`
-
-	row := db.QueryRow(sqlStmt)
-	_ = row.Scan(&appid)
-	log.Println("com.netease.163music identifier:", appid)
-
+	historyFilePath = os.Getenv("HOME") +
+		"/Library/Containers/com.netease.163music/Data/Documents/storage/file_storage/webdata/file/history"
 }
 
-func UpdateNotification() {
-	sqlStmt := `
-		SELECT data FROM record 
-		WHERE app_id is ` + appid + `;`
+var PlayingMutex sync.Mutex
 
-	row := db.QueryRow(sqlStmt)
-	var data []byte
-	_ = row.Scan(&data)
-	if len(data) == 0 {
-		CurrentPlayingSong = NotificationPlist{}
+var Playing = &Song{}
+
+func Update() {
+	f, err := os.Open(historyFilePath)
+	historyData, _ := ioutil.ReadAll(f)
+	if err != nil {
+		panic(err)
 	}
-	//log.Println("read hex data from db2/db:", len(data))
+	defer f.Close()
+	var history historyStruct
 
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("Error:", r.(error))
-		}
-	}()
-	_, err := plist.Unmarshal(data, &CurrentPlayingSong)
+	_, err = plist.Unmarshal(historyData, &history)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	//fmt.Println("CurrentPlayingSong: ", CurrentPlayingSong)
-	body := CurrentPlayingSong.Req["body"].(string)
+	var tracks []Song
+	_ = json.Unmarshal([]byte(history.Objects[1]), &tracks)
 
-	bodyS := strings.Split(body, " - ")
-	artistName := bodyS[0]
-	albumName := bodyS[1]
-	if len(bodyS) > 2 {
-		albumName = strings.TrimLeft(body, artistName+" - ")
+	var artists []string
+	for _, a := range tracks[0].Track.Artists {
+		artists = append(artists, a.Name)
 	}
 
-	songName := CurrentPlayingSong.Req["titl"].(string)
-	CurrentPlayingSong.StartPlayTime = time.Unix(int64(CurrentPlayingSong.Date)+978307205, 0).Unix()
+	PlayingMutex.Lock()
+	Playing = &tracks[0]
+	PlayingMutex.Unlock()
 
-	if songName == CurrentPlayingSong.SongName {
-		CurrentPlayingSong.LastingPlayTime = time.Now().Sub(time.Unix(CurrentPlayingSong.StartPlayTime, 0)).Seconds()
-	} else {
-		CurrentPlayingSong = NotificationPlist{}
+	duration, _ := time.ParseDuration(fmt.Sprint(Playing.Track.Duration/1000) + "s")
+
+	fmt.Println("song id:", Playing.Track.Id)
+	fmt.Println("song name:", Playing.Track.Name)
+	fmt.Println("song alias:", Playing.Track.Alias)
+	fmt.Println("song popularity:", Playing.Track.Popularity)
+	fmt.Println("song isPayed:", Playing.Track.Privilege.Payed)
+	fmt.Println("song duration:", duration)
+
+	fmt.Println("artists name:", strings.Join(artists, " / "))
+
+	fmt.Println("album name:", Playing.Track.Album.Name)
+	fmt.Println("album alias", Playing.Track.Album.Alias)
+	fmt.Println("album pic:", Playing.Track.Album.PicUrl)
+
+	fmt.Println("from:", Playing.Text)
+	fmt.Println("////////////////////////////////////////////////////////////////////////////")
+}
+
+func Watch() {
+	Update()
+	watch, err := fsnotify.NewWatcher()
+	if err != nil {
+		panic(err)
 	}
 
-	CurrentPlayingSong.StartPlayTime = time.Unix(int64(CurrentPlayingSong.Date)+978307205, 0).Unix()
-	CurrentPlayingSong.ArtistName = strings.TrimSpace(artistName)
-	CurrentPlayingSong.AlbumName = strings.TrimSpace(albumName)
-	CurrentPlayingSong.SongName = strings.TrimSpace(songName)
+	defer watch.Close()
+
+	done := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watch.Events:
+				if !ok {
+					return
+				}
+				log.Println("event:", event.Op)
+				if event.Op == fsnotify.Create {
+					//log.Println("watcher: log file create")
+					Update()
+				}
+
+			case err, ok := <-watch.Errors:
+				if !ok {
+					return
+				}
+				log.Println("error:", err)
+			}
+		}
+	}()
+
+	if err = watch.Add(historyFilePath); err != nil {
+		log.Fatalln(err)
+	}
+	<-done
 }
