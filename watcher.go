@@ -9,7 +9,7 @@ import (
 var PlayingMutex sync.Mutex
 
 func Watch(filePath string) {
-	Update()
+	//Update()
 	watch, err := fsnotify.NewWatcher()
 	if err != nil {
 		panic(err)

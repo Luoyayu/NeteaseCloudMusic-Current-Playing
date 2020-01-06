@@ -9,6 +9,7 @@ NeteaseMusic.app do not provide the API to get what now playing.
 1. access $TMP\..\Packages\1F8B0F94.122165AE053F_j2p0p5q0044a6\LocalState\_cloudmusic.sqlite
 
 the latest version use the method osx:<2> and win:<1>
+when first boot NeteaseMusic, you need change song to active!
 
 # NeteaseMusic API
 see more in https://github.com/Luoyayu/goutils/tree/master/netease
