@@ -50,7 +50,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
-	r.Handle(http.MethodGet, "/CC981E5D-9E4E-4DBB-95B1-FA6855E5F3B5/playing", Playing)
+	r.Handle(http.MethodGet, "/playing", Playing)
 
 	log.Fatal(r.Run("127.0.0.1:9163"))
 }
