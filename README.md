@@ -11,6 +11,9 @@ NeteaseMusic.app do not provide the API to get what now playing.
 the latest version use the method osx:<2> and win:<1>
 when first boot NeteaseMusic, you need change song to active!
 
+# guild
+windows version need enable cgo and corresponding toolchain
+
 # NeteaseMusic API
 see more in https://github.com/Luoyayu/goutils/tree/master/netease
 
